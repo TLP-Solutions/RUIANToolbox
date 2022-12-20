@@ -187,7 +187,6 @@ class RUIANDownloader:
         urls = urls.split(";")
         result = []
         for url in urls:
-            url = url.replace("vyhledej", "seznamlinku")
             log.logger.info("Downloading file list from " + url)
             content = urllib2.urlopen(url).read()
             lines = content.splitlines()
