@@ -78,7 +78,7 @@ def cleanDirectory(folder):
                     os.rmdir(path)
 
             except Exception, e:
-                log.logger.error(e.message, str(e))
+                log.logger.exception("Selhal pokus o smazani adresare: {}".format(path))
 
 
 def getFileContent(fileName):
@@ -165,6 +165,21 @@ class RUIANDownloader:
         return self.getList(self.pageURLs, False)
 
 
+    def filterUrlsByDate(self, urls, stateMonth, stateYear):
+        newResult = []
+        if stateMonth == 0:
+            stateYear = stateYear - 1
+            stateMonth = 12
+
+        for url in urls:
+            date = url[url.rfind("/") + 1:]
+            date = date[:date.find("_")]
+            month = int(date[4:6])
+            year = int(date[:4])
+            if year == stateYear and month >= stateMonth:
+                newResult.append(url)
+        return newResult
+
     def getList(self, urls, isPatchList):
         assert isinstance(urls, basestring)
         assert isinstance(isPatchList, bool)
@@ -179,21 +194,22 @@ class RUIANDownloader:
             result.extend(lines)
 
         if self.ignoreHistoricalData and not isPatchList:
-            newResult = []
-            stateMonth = datetime.date.today().month - 1
+            # zkusme nejprve stahnout tento mesic
+            stateMonth = datetime.date.today().month
             stateYear = datetime.date.today().year
-            if stateMonth == 0:
-                stateYear = stateYear - 1
-                stateMonth = 12
+            newResult = self.filterUrlsByDate(result, stateMonth, stateYear)
+            # pripadne predchozi mesic...
+            if not newResult:
+                stateMonth = datetime.date.today().month - 1
+                stateYear = datetime.date.today().year
+                newResult = self.filterUrlsByDate(result, stateMonth, stateYear)
 
-            for url in result:
-                date = url[url.rfind("/") + 1:]
-                date = date[:date.find("_")]
-                month = int(date[4:6])
-                year = int(date[:4])
-                if year == stateYear and month >= stateMonth:
-                    newResult.append(url)
             result = newResult
+
+            # na zaver pridejme brutalni podminku, ze pocet linku je prave 6259
+            # jinak nemame velkou jistotu, ze jsme stahli vsechno..
+
+            assert len(result) == 6259
 
         return result
 
@@ -495,11 +511,13 @@ if __name__ == '__main__':
     config = RUIANDownloadConfig()
     config.loadFromCommandLine(sys.argv, helpStr)
 
-    log.createLogger(config.dataDir + "Download.log")
+    logFile = config.dataDir + "Download.log"
+
+    log.createLogger(logFile)
     infoFile = RUIANDownloadInfoFile()
 
     if config.downloadFullDatabase:
-        log.clearLogFile()
+        log.clearLogFile(logFile)
 
     log.logger.info("RUIAN Downloader")
     log.logger.info("#############################################")
